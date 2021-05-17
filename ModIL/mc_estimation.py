@@ -133,7 +133,7 @@ class imageMcEstimator(object):
             loss_history = []
             for batch in range(num_batches):
                 
-                x_batch = self.dataset.sample_mini_batch(self.batch_size)
+                x_batch = self.dataset.sample_mini_batch_wo_replacement(self.batch_size)
                 prev_states = x_batch['prev_state']
                 loss = self.train_mc_batch(prev_states)
                 loss_history.append(loss)
@@ -176,7 +176,7 @@ class imageMcEstimator(object):
             
             # print(x.shape)
             # print(x_with_action.shape)
-            predict = self.dynamics_model(x, x_actions)
+            predict = self.dynamics_model((x, x_actions))
 
             trans_features.append(predict)
 

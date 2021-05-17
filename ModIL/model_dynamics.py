@@ -76,7 +76,7 @@ def trainMarkovChainCNN(model, experience_history, config):
     for i in range(epochs):
         for j in range(batches):
             '''Get batch'''
-            batch = experience_history.sample_mini_batch(batch_size)
+            batch = experience_history.sample_mini_batch_wo_replacement(batch_size)
             current_state = batch['prev_state']
             target_state  = batch['next_state']
             '''predicts'''
@@ -112,7 +112,9 @@ class TransitionModel(tf.keras.Model):
         self.c3_d = tf.keras.layers.Conv2D(16 + 32, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
         self.c4_d = tf.keras.layers.Conv2D(input_dim[2], 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
 
-    def call(self, input_state, input_action, training=False):
+    def call(self, inputs , training=False):
+
+        input_state, input_action = inputs
 
         x1 = self.c1(input_state)
         x2 = self.maxpool(x1)
@@ -156,7 +158,7 @@ def trainTransitions(model, experience_history, config):
     for i in range(epochs):
         for j in range(batches):
             '''Get batch'''
-            batch = experience_history.sample_mini_batch(batch_size)
+            batch = experience_history.sample_mini_batch_wo_replacement(batch_size)
             current_state = batch['prev_state']
             #convert actions to one hot
             actions  = batch['actions']
@@ -164,7 +166,7 @@ def trainTransitions(model, experience_history, config):
             target_state  = batch['next_state']
             '''predicts'''
             with tf.GradientTape() as tape:
-                predict_next_state = model(current_state, actions)
+                predict_next_state = model((current_state, actions))
                 loss = loss_func(predict_next_state, target_state)
             '''apply gradients'''
             grads = tape.gradient(loss, model.trainable_weights)
