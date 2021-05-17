@@ -44,7 +44,8 @@ class MarkovChainCNNModel(tf.keras.Model):
 
         self.c1_d = tf.keras.layers.Conv2D(64, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
         self.c2_d = tf.keras.layers.Conv2D(32, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
-        self.c3_d = tf.keras.layers.Conv2D(input_dim[2], 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c3_d = tf.keras.layers.Conv2D(16, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c4_d = tf.keras.layers.Conv2D(input_dim[2], 1, activation=None, kernel_regularizer=regularizer, padding="same")
 
     def call(self, input, training=False):
 
@@ -63,6 +64,7 @@ class MarkovChainCNNModel(tf.keras.Model):
         x = self.c2_d(x)
 
         x = self.c3_d(x)
+        x = self.c4_d(x)
 
         return x
 
@@ -74,6 +76,7 @@ def trainMarkovChainCNN(model, experience_history, config):
     batches = experience_history.counter // batch_size
 
     for i in range(epochs):
+        loss_history = []
         for j in range(batches):
             '''Get batch'''
             batch = experience_history.sample_mini_batch(batch_size)
@@ -87,7 +90,9 @@ def trainMarkovChainCNN(model, experience_history, config):
             grads = tape.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
             '''log'''
-            print("Batch: " + str(j) + "/" + str(batches) + " - Loss: " + str(np.mean(loss)), end='\n')
+            loss_history.append(np.sum(loss))
+            print("Batch: " + str(j) + "/" + str(batches) + " - Loss: " + str(np.sum(loss)), end='\r')
+        print("Epoch " + str(i) + " Training Loss: " + str(np.mean(loss_history)))
 
 class TransitionModel(tf.keras.Model):
     def __init__(self, input_dim, action_dim, activation_func = tf.nn.relu, regularizer=tf.keras.regularizers.l2(0.0001)):
@@ -103,46 +108,51 @@ class TransitionModel(tf.keras.Model):
 
         self.maxpool = tf.keras.layers.MaxPool2D()
 
-        self.f4 = tf.keras.layers.Dense(input_dim[0]/8*input_dim[1]/8, activation=activation_func, kernel_regularizer=regularizer)
+        self.f4 = tf.keras.layers.Dense(input_dim[0]/16*input_dim[1]/16, activation=activation_func, kernel_regularizer=regularizer)
 
         self.upsamp = tf.keras.layers.UpSampling2D()
 
-        self.c1_d = tf.keras.layers.Conv2D(32 + 64, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
-        self.c2_d = tf.keras.layers.Conv2D(32 + 64, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
-        self.c3_d = tf.keras.layers.Conv2D(16 + 32, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
-        self.c4_d = tf.keras.layers.Conv2D(input_dim[2], 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c1_d = tf.keras.layers.Conv2D(64, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c2_d = tf.keras.layers.Conv2D(32, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c3_d = tf.keras.layers.Conv2D(16, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c4_d = tf.keras.layers.Conv2D(8, 3, activation=activation_func, kernel_regularizer=regularizer, padding="same")
+        self.c5_d = tf.keras.layers.Conv2D(input_dim[2], 1, activation=None, kernel_regularizer=regularizer, padding="same")
 
     def call(self, input_state, input_action, training=False):
 
-        x1 = self.c1(input_state)
-        x2 = self.maxpool(x1)
-        x2 = self.c2(x2)
-        x3 = self.maxpool(x2)
-        x3 = self.c3(x3)
-        x4 = self.maxpool(x3)
-        x4 = self.c4(x4)
+        x1 = self.c1(input_state) #96x96x16
+        x2 = self.maxpool(x1)     #48x48x16
+        x2 = self.c2(x2)          #48x48x32
+        x3 = self.maxpool(x2)     #24x24x32
+        x3 = self.c3(x3)          #24x24x64
+        x4 = self.maxpool(x3)     #12x12x64
+        x4 = self.c4(x4)          #12x12x1
+        x5 = self.maxpool(x4)     #6x6x1
 
-        x4_flat = tf.keras.layers.Flatten()(x4)
+        x5_flat = tf.keras.layers.Flatten()(x5)
         # print(x4_flat.shape)
         # print(input_action.shape)
-        x4_flat = tf.concat((x4_flat, input_action), axis = 1)
-        x4_flat = self.f4(x4_flat)
-        x4 = tf.reshape(x4_flat, shape=(-1, int(self.input_dim[0]/8), int(self.input_dim[1]/8), 1))
+        x5_flat = tf.concat((x5_flat, input_action), axis = 1)
+        x5_flat = self.f4(x5_flat)
+        x = tf.reshape(x5_flat, shape=(-1, int(self.input_dim[0]/16), int(self.input_dim[1]/16), 1))
         # print(x4.shape)
 
-        x = self.upsamp(x4)
-        x = tf.concat((x3, x), axis = 3)
+        x = self.upsamp(x)
+        x = tf.concat((x4, x), axis = 3)
         x = self.c1_d(x)
 
         x = self.upsamp(x)
-        x = tf.concat((x2, x), axis = 3)
+        x = tf.concat((x3, x), axis = 3)
         x = self.c2_d(x)
         
         x = self.upsamp(x)
-        x = tf.concat((x1, x), axis = 3)
+        x = tf.concat((x2, x), axis = 3)
         x = self.c3_d(x)
 
+        x = self.upsamp(x)
+        x = tf.concat((x1, x), axis = 3)
         x = self.c4_d(x)
+        x = self.c5_d(x)
 
         return x
 
@@ -154,6 +164,7 @@ def trainTransitions(model, experience_history, config):
     batches = experience_history.counter // batch_size
 
     for i in range(epochs):
+        loss_history = []
         for j in range(batches):
             '''Get batch'''
             batch = experience_history.sample_mini_batch(batch_size)
@@ -170,7 +181,9 @@ def trainTransitions(model, experience_history, config):
             grads = tape.gradient(loss, model.trainable_weights)
             optimizer.apply_gradients(zip(grads, model.trainable_weights))
             '''log'''
-            print("Batch: " + str(j) + "/" + str(batches) + " - Loss: " + str(np.mean(loss)), end='\n')
+            loss_history.append(np.sum(loss))
+            print("Batch: " + str(j) + "/" + str(batches) + " - Loss: " + str(np.sum(loss)), end='\r')
+        print("Epoch " + str(i) + " Training Loss: " + str(np.mean(loss_history)))
 
 
 

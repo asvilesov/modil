@@ -38,7 +38,8 @@ class CnnPolicy(tf.keras.Model):
 
         self.c1 = tf.keras.layers.Conv2D(32, 3, activation=activation_func, kernel_regularizer=regularizer)
         self.c2 = tf.keras.layers.Conv2D(64, 3, activation=activation_func, kernel_regularizer=regularizer)
-        self.f3 = tf.keras.layers.Dense(units = action_dim, activation=tf.keras.activations.softmax, kernel_regularizer=regularizer)
+        self.f3 = tf.keras.layers.Dense(units = 100, activation=activation_func, kernel_regularizer=regularizer)
+        self.f4 = tf.keras.layers.Dense(units = action_dim, activation=tf.keras.activations.softmax, kernel_regularizer=regularizer) 
 
     #TODO Regularization Loss?
 
@@ -49,4 +50,5 @@ class CnnPolicy(tf.keras.Model):
         x = self.c2(x)
         x = tf.keras.layers.MaxPool2D()(x)
         x = tf.keras.layers.Flatten()(x)
-        return self.f3(x)
+        x = self.f3(x)
+        return self.f4(x)

@@ -137,9 +137,10 @@ class imageMcEstimator(object):
                 prev_states = x_batch['prev_state']
                 loss = self.train_mc_batch(prev_states)
                 loss_history.append(loss)
-                print("\rBatch: " + str(batch) + "/" + str(self.dataset.counter) + " - Loss: " + str(np.mean(loss)), end='')
+                print("\rBatch: " + str(batch) + "/" + str(num_batches) + " - Loss: " + str(np.mean(loss)), end=' ')
                 time.sleep(0)
-            print("Epoch " + str(epoch) + " Training Loss: " + str(np.mean(loss_history)))    
+            print("Epoch " + str(epoch) + " Training Loss: " + str(np.mean(loss_history)))
+            print()    
 
     def train_mc_batch(self, x):
         """[summary]
