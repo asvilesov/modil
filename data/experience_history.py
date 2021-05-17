@@ -24,7 +24,7 @@ class ExperienceHistory:
         self.init_caches()
         self.expecting_new_episode = True
         #sample wo replacement
-        self.random_idx = None
+        self.random_idx = np.array([])
         self.batch_num = 0
     
     def loadExpertHistory(self, file_name):
@@ -88,18 +88,19 @@ class ExperienceHistory:
         }
     
     def sample_mini_batch_wo_replacement(self, n):
-        if(self.random_idx == None):
+        if(len(self.random_idx) == 0):
             self.random_idx = np.arange(self.counter)
             np.random.shuffle(self.random_idx)
         
-        indices = self.random_idx[self.batch_num*n : min(self.counter, (self.batch_num+1)*n)]
+        indices = self.random_idx[self.batch_num*n : min(self.counter - self.counter%n, (self.batch_num+1)*n)]
+        if(len(indices) < n):
+            indices = self.random_idx[0:64]
         
         prev_frames = np.transpose(self.frames[self.prev_states[indices]], axes=(0,2,3,1))
         next_frames = np.transpose(self.frames[self.next_states[indices]], axes=(0,2,3,1))
         
-        if((self.batch_num+1)*n > self.max_buffer_length):
+        if((self.batch_num+1)*n > self.counter):
             self.batch_num = 0
-            self.epoch += 1
             np.random.shuffle(self.random_idx)
         else:
             self.batch_num += 1
